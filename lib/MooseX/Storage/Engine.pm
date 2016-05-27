@@ -6,6 +6,7 @@ our $VERSION = '0.52';
 use Moose;
 use Scalar::Util qw(refaddr blessed);
 use Carp 'confess';
+use version 0.77;
 use namespace::autoclean;
 
 # the class marker when
@@ -162,28 +163,29 @@ my %OBJECT_HANDLERS = (
         (exists $data->{$CLASS_MARKER})
             || confess "Serialized item has no class marker";
         # check the class more thoroughly here ...
-        my ($class, $version, $authority) = (split '-' => $data->{$CLASS_MARKER});
+        my ($class, $version_string, $authority) = (split '-' => $data->{$CLASS_MARKER});
         my $meta = eval { $class->meta };
         confess "Class ($class) is not loaded, cannot unpack" if $@;
 
-        if ($options->{check_version}) {
-            my $meta_version = $meta->version;
-            if (defined $meta_version && $version) {
-                if ($options->{check_version} eq 'allow_less_than') {
-                    ($meta_version <= $version)
-                        || confess "Class ($class) versions is not less than currently available."
-                                 . " got=($version) available=($meta_version)";
-                }
-                elsif ($options->{check_version} eq 'allow_greater_than') {
-                    ($meta->version >= $version)
-                        || confess "Class ($class) versions is not greater than currently available."
-                                 . " got=($version) available=($meta_version)";
-                }
-                else {
-                    ($meta->version == $version)
-                        || confess "Class ($class) versions don't match."
-                                 . " got=($version) available=($meta_version)";
-                }
+        if ($options->{check_version} &&
+                defined $version_string &&
+                defined $meta->version) {
+            my $version = version->parse($version_string);
+            my $meta_version = version->parse($meta->version);
+            if ($options->{check_version} eq 'allow_less_than') {
+                ($meta_version <= $version)
+                    || confess "Class ($class) versions is not less than currently available."
+                             . " got=($version) available=($meta_version)";
+            }
+            elsif ($options->{check_version} eq 'allow_greater_than') {
+                ($meta_version >= $version)
+                    || confess "Class ($class) versions is not greater than currently available."
+                             . " got=($version) available=($meta_version)";
+            }
+            else {
+                ($meta_version == $version)
+                    || confess "Class ($class) versions don't match."
+                             . " got=($version) available=($meta_version)";
             }
         }
 
